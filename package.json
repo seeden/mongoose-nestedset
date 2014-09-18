@@ -29,6 +29,19 @@
 	"engines": {
 		"node": ">= 0.10.0"
 	},
+	"scripts": {
+		"test": "node node_modules/grunt-cli/bin/grunt test"
+	},
 	"dependencies": {
+	},
+	"devDependencies": {
+		"mongoose": "~3.8.16",
+		"should": "~3.3.1",
+		"supertest": "~0.11.0",
+		"grunt-mocha-test": "~0.10.2",
+		"grunt": "~0.4.4",
+		"grunt-cli": "~0.1.13",
+		"grunt-env": "~0.4.1",
+		"grunt-concurrent": "~0.4.2"
 	}
 }

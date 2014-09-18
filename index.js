@@ -1,105 +1,197 @@
 'use strict';
 
 module.exports = function nestedSetPlugin (schema, options) {
+    var Schema = schema.constructor;
 	//prepare arguments
 	options = options || {};
 
 	schema.add({
-		lft      : { type: Number, required: true, min: 1, default: 1 },
-		rgt      : { type: Number, required: true, min: 2, default: 2, index: true },
+		lft      : { type: Number, required: true, min: 1 },
+		rgt      : { type: Number, required: true, min: 2, index: true },
 		parentID : { type: Schema.ObjectId, index: true },
-		treeID   : { type: Schema.ObjectId, required: true, index: true }
+		treeID   : { type: Schema.ObjectId, required: true, index: true },
+        deep     : { type: Number, required: true }
 	});
 	
 	schema.index({ lft: 1, rgt: 1 });
 
+    schema.pre('validate', function(next) {
+        var _this = this;
 
+        if (this.parentID) {
+            this.parent(function(err, parent) {
+                if(err) {
+                    return next(err);
+                }
+
+                _this.treeID = parent.treeID;
+                _this.deep = parent.deep+1;
+
+                next();
+            });
+        } else {
+            this.treeID = this._id;
+            this.deep = 0; 
+            this.lft = 1; 
+            this.rgt = 2; 
+            next();   
+        }        
+    });
+
+    //put actual child at the end of the parent
+    schema.method('_append', function(parent, next) {
+        var _this = this;
+
+        _this.constructor.update({ 
+            lft: { $gte: parent.rgt },
+            treeID : parent.treeID 
+        }, { $inc: { lft: 2 } }, { multi: true }, function(err, numAffectedRows) {
+            if(err) {
+                return next(err);
+            }
+
+            _this.constructor.update({ 
+                rgt: { $gte: parent.rgt },
+                treeID : parent.treeID 
+            }, { $inc: { rgt: 2 }}, { multi: true }, function(err, numAffectedRows) {
+                if(err) {
+                    return next(err);
+                }
+
+                _this.lft = parent.rgt;
+                _this.rgt = _this.lft + 1;
+
+                next();
+            });
+        });
+    });
+
+    //put actual child at the end of the parent
+    schema.method('_prepend', function(parent, next) {
+        var _this = this;
+
+        _this.constructor.update({ 
+            lft: { $gt: parent.lft },
+            treeID : parent.treeID 
+        }, { $inc: { lft: 2 } }, { multi: true }, function(err, numAffectedRows) {
+            if(err) {
+                return next(err);
+            }
+
+            _this.constructor.update({ 
+                rgt: { $gt: parent.lft },
+                treeID : parent.treeID 
+            }, { $inc: { rgt: 2 }}, { multi: true }, function(err, numAffectedRows) {
+                if(err) {
+                    return next(err);
+                }
+
+                _this.lft = parent.lft + 1;
+                _this.rgt = _this.lft + 1;
+
+                next();
+            });
+        });
+    });    
 
 
 	schema.pre('save', function(next) {
 		var _this = this;
 
     	if (!this.parentID) {
-    		//generate new treeID
-    		this.treeID = Schema.ObjectId();
     		return next();
     	}
+
 
     	this.parent(function(err, parent) {
     		if(err) {
     			return next(err);
     		}
 
-    		_this.constructor.update({ 
-    			lft: { $gte: parent.rgt },
-    			treeID : parent.treeID 
-    		}, { $inc: { lft: 2 } }, { multi: true }, function(err, numAffectedRows) {
-    			if(err) {
-    				return next(err);
-    			}
+            if(_this.lft  && _this.lft === parent.lft+1) {
+                _this._prepend(parent, next);
+                return;
+            }
 
-    			_this.constructor.update({ 
-	    			rgt: { $gte: parent.rgt },
-	    			treeID : parent.treeID 
-	    		}, { $inc: { rgt: 2 }}, { multi: true }, function(err, numAffectedRows) {
-	    			if(err) {
-    					return next(err);
-    				}
-
-	    			_this.treeID = parent.treeID;
-		    		_this.lft = parent.rgt;
-		    		_this.rgt = parent.rgt + 1;
-
-		    		next();
-	    		});
-    		});
+            _this._append(parent, next);
     	});
     });
 
 
     schema.pre('remove', function(next) {
-    	var _this = this,
-    		width = (this.rgt-this.lft)+1;
+        this.reload(function(err, _this) {
+            if(err) {
+                return next(err);
+            }
 
-    	this.constructor.remove({
-    		treeID : this.treeID,
-    		lft    : { 
-    			$gt: this.lft,
-    			$lt: this.rgt
-    		}
-    	}, function(err, numAffectedRows) {
-    		if(err) {
-    			return next(err);
-    		}
+            var width = (_this.rgt-_this.lft)+1;
 
-    		_this.constructor.update({ 
-    			rgt: { $gt: _this.rgt },
-    			treeID : _this.treeID 
-    		}, { $inc: { rgt: -width } }, { multi: true }, function(err, numAffectedRows) {
-    			if(err) {
-    				return next(err);
-    			} 
+            _this.constructor.remove({
+                treeID : _this.treeID,
+                lft    : { 
+                    $gt: _this.lft,
+                    $lt: _this.rgt
+                }
+            }, function(err, numAffectedRows) {
+                if(err) {
+                    return next(err);
+                }
 
-    			_this.constructor.update({ 
-	    			lft: { $gt: _this.rgt },
-	    			treeID : _this.treeID 
-	    		}, { $inc: { lft: -width } }, { multi: true }, function(err, numAffectedRows) {
-	    			if(err) {
-	    				return next(err);
-	    			} 
+                _this.constructor.update({ 
+                    rgt: { $gt: _this.rgt },
+                    treeID : _this.treeID 
+                }, { $inc: { rgt: -width } }, { multi: true }, function(err, numAffectedRows) {
+                    if(err) {
+                        return next(err);
+                    } 
 
-	    			next();
-	    		});  
-    		});   		
-    	});
+                    _this.constructor.update({ 
+                        lft: { $gt: _this.rgt },
+                        treeID : _this.treeID 
+                    }, { $inc: { lft: -width } }, { multi: true }, function(err, numAffectedRows) {
+                        if(err) {
+                            return next(err);
+                        } 
+
+                        next();
+                    });  
+                });         
+            });
+        });
+    });
+
+    schema.method('reload', function(cb) {
+        this.constructor.findById(this._id, function(err, obj) {
+            if(err) {
+                return cb(err);
+            }
+
+            cb(null, obj);
+        });
     });
 
 
-    schema.method('addChild', function(data, cb) {
-    	data.parentID = this._id;
+    schema.method('append', function(data, cb) {
+        this.reload(function(err, _this) {
+            data.parentID = _this._id;
+            data.treeID = _this.treeID;
+            data.lft = _this.rgt;
+            data.rgt = data.lft + 1;
 
-    	this.constructor.create(data, cb);
+            _this.constructor.create(data, cb);
+        });
 	});
+
+    schema.method('prepend', function(data, cb) {
+        this.reload(function(err, _this) {
+            data.parentID = _this._id;
+            data.treeID = _this.treeID;
+            data.lft = _this.lft+1;
+            data.rgt = data.lft+1;
+
+            _this.constructor.create(data, cb);
+        });
+    });
 
     schema.method('isChild', function() {
     	return !!this.parentID;

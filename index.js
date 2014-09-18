@@ -19,6 +19,10 @@ module.exports = function nestedSetPlugin (schema, options) {
         var _this = this;
 
         if (this.parentID) {
+            if(this.treeID && this.deep) {
+                return next();
+            }
+
             this.parent(function(err, parent) {
                 if(err) {
                     return next(err);
@@ -175,6 +179,7 @@ module.exports = function nestedSetPlugin (schema, options) {
         this.reload(function(err, _this) {
             data.parentID = _this._id;
             data.treeID = _this.treeID;
+            data.deep = _this.deep+1;
             data.lft = _this.rgt;
             data.rgt = data.lft + 1;
 
@@ -186,6 +191,7 @@ module.exports = function nestedSetPlugin (schema, options) {
         this.reload(function(err, _this) {
             data.parentID = _this._id;
             data.treeID = _this.treeID;
+            data.deep = _this.deep+1;
             data.lft = _this.lft+1;
             data.rgt = data.lft+1;
 

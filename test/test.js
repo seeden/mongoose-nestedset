@@ -57,7 +57,6 @@ describe('Nested set', function() {
 	});
 
 	it('should be able to create a new child', function(done) {
-
 		base.append({
 			title: 'child'
 		}, function(err, child) {
@@ -79,7 +78,6 @@ describe('Nested set', function() {
 	});
 
 	it('should be able to create a new child2', function(done) {
-
 		base.append({
 			title: 'child2'
 		}, function(err, child) {
@@ -99,7 +97,6 @@ describe('Nested set', function() {
 	});
 
 	it('should be able to create a new subchild child', function(done) {
-
 		child1.append({
 			title: 'sub child1'
 		}, function(err, child) {
@@ -117,9 +114,8 @@ describe('Nested set', function() {
 			done();
 		});
 	});
-/*
-	it('should be able to remove child', function(done) {
 
+	it('should be able to remove child', function(done) {
 		child1.remove(function(err, removed) {
 			if(err) {
 				throw err;
@@ -130,7 +126,6 @@ describe('Nested set', function() {
 	});
 
 	it('should be able to remove base', function(done) {
-
 		base.remove(function(err, removed) {
 			if(err) {
 				throw err;
@@ -138,13 +133,11 @@ describe('Nested set', function() {
 
 			done();
 		});
-	});		*/	
+	});			
 
 
 	after(function(done) {
-
 		done();
- 
 	});
 
 });

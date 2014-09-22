@@ -253,4 +253,45 @@ module.exports = function nestedSetPlugin (schema, options) {
 	schema.method('siblingsWithCurrent', function(callback) {
 		this.constructor.find({ parentID: this.parentID }, callback);
 	});
+
+
+    schema.method('tree', function(callback) {
+        var tree = {
+            node: this,
+            children: []
+        };
+
+        var ref = {};
+        ref[this._id] = tree;
+
+        return this.constructor.find({ 
+            lft: { $gt: this.lft },
+            rgt: { $lt: this.rgt },
+            treeID: this.treeID 
+        }).sort('lft').exec(function(err, nodes) {          
+            if(err) {
+                return callback(err);
+            }
+
+            for(var i=0; i<nodes.length; i++) {
+                var node = nodes[i],
+                    id = node._id,
+                    parentID = node.parentID;  
+
+                if(!ref[parentID]) {
+                    continue;
+                }
+
+                //create reference to actual node
+                ref[id] = {
+                    node: node,
+                    children: []
+                };
+
+                ref[parentID].children.push(ref[id]);
+            }
+
+            callback(null, tree);
+        });
+    });
 };

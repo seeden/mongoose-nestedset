@@ -1,6 +1,6 @@
 {
 	"name": "mongoose-nestedset",
-	"version": "0.0.2",
+	"version": "0.9.2",
 	"description": "Mongoose nested set",
 	"author": {
 		"name": "Zlatko Fedor",
